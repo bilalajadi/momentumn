@@ -575,25 +575,25 @@
   <div class="setup-screen" id="setupScreen" style="display:none">
     <div class="setup-card">
       <h2>One-time setup 🔑</h2>
-      <p>Momentum uses the Anthropic AI API. You just need to paste your API key once — it stays saved on your device and is never sent anywhere else.</p>
+      <p>Momentum uses Google Gemini AI — completely free, no credit card needed. Just paste your API key once and you're set forever.</p>
 
       <div class="setup-steps">
         <div class="setup-step">
           <div class="setup-step-num">1</div>
-          <div>Go to <a href="https://console.anthropic.com" target="_blank">console.anthropic.com</a> and sign in</div>
+          <div>Go to <a href="https://aistudio.google.com/apikey" target="_blank">aistudio.google.com/apikey</a> and sign in with Google</div>
         </div>
         <div class="setup-step">
           <div class="setup-step-num">2</div>
-          <div>Click <strong style="color:var(--text)">API Keys</strong> in the sidebar → <strong style="color:var(--text)">Create Key</strong></div>
+          <div>Click <strong style="color:var(--text)">Create API key</strong> — it's instant and free</div>
         </div>
         <div class="setup-step">
           <div class="setup-step-num">3</div>
-          <div>Copy the key (starts with <strong style="color:var(--accent)">sk-ant-...</strong>) and paste it below</div>
+          <div>Copy the key (starts with <strong style="color:var(--accent)">AIza...</strong>) and paste it below</div>
         </div>
       </div>
 
       <div class="key-input-wrap">
-        <input class="key-input" id="apiKeyInput" type="password" placeholder="sk-ant-api03-..." />
+        <input class="key-input" id="apiKeyInput" type="password" placeholder="AIzaSy..." />
       </div>
       <div class="privacy-note">🔒 Saved only on this device. Never shared.</div>
       <button class="btn-primary" style="width:100%" onclick="saveKey()">Save & start using Momentum →</button>
@@ -691,7 +691,7 @@ function getKey() {
 
 function saveKey() {
   const val = document.getElementById('apiKeyInput').value.trim();
-  if (!val.startsWith('sk-ant-')) {
+  if (val.length < 20) {
     document.getElementById('keyError').classList.add('visible');
     return;
   }
@@ -761,24 +761,19 @@ async function generateSteps() {
   document.getElementById('errorMsg').classList.remove('visible');
 
   try {
-    const response = await fetch('https://api.anthropic.com/v1/messages', {
+    const apiKey = getKey();
+    const fullPrompt = SYSTEM_PROMPT + '\n\nTask: ' + input;
+    const response = await fetch(`https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key=${apiKey}`, {
       method: 'POST',
-      headers: {
-        'Content-Type': 'application/json',
-        'x-api-key': apiKey,
-        'anthropic-version': '2023-06-01',
-        'anthropic-dangerous-direct-browser-access': 'true',
-      },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({
-        model: 'claude-sonnet-4-20250514',
-        max_tokens: 1000,
-        system: SYSTEM_PROMPT,
-        messages: [{ role: 'user', content: input }]
+        contents: [{ parts: [{ text: fullPrompt }] }],
+        generationConfig: { temperature: 0.7, maxOutputTokens: 1000 }
       })
     });
 
     const data = await response.json();
-    const raw = data.content.find(b => b.type === 'text')?.text || '';
+    const raw = data.candidates?.[0]?.content?.parts?.[0]?.text || '';
     const parsed = JSON.parse(raw.replace(/```json|```/g, '').trim());
 
     renderSteps(parsed, input);
